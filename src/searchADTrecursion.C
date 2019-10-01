@@ -25,6 +25,22 @@ void searchIntersections(MeshBlock *mb,int *cellIndex,int *adtIntegers,double *a
 
 void ADT::searchADT(MeshBlock *mb, int *cellIndex,double *xsearch)
 {
+#ifdef USE_ArborX
+
+  int ncandiates;      //number of approximate neighbors
+  int *candidateList;  //index of candidate AABB
+
+  // Andrey will populate these
+  // ncandidates=ArborX::Tree::donorList.size()
+  // candidatesList=ArborX::Tree::donorList.data() etc
+  // perhaps even change the loop below
+  for(int j=0;j<ncandidates;j++)
+    {
+      mb->checkContainment(cellIndex,candidateList[j],xsearch);
+      // checkContainment will map the element in adt list to the actual cell
+      if (cellIndex[0] > -1 && cellIndex[1]==0) return;
+    }
+#else
   int i;
   int flag;
   int rootNode;
@@ -47,6 +63,7 @@ void ADT::searchADT(MeshBlock *mb, int *cellIndex,double *xsearch)
   //
   if (flag) searchIntersections(mb,cellIndex,adtIntegers,adtReals,
 				coord,0,rootNode,xsearch,nelem,ndim);
+#endif
 }
 
 void searchIntersections(MeshBlock *mb,int *cellIndex,int *adtIntegers,double *adtReals,

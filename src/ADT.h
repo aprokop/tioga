@@ -41,6 +41,14 @@ class ADT
   double *adtExtents; /** < global extents */
   double *coord;          /** < bounding box of each element */
 
+#ifdef USE_ArborX
+
+   // data to be instantiated/populated by
+   // ArborX tree builder
+
+
+#endif
+
  public :
   ADT() {ndim=6;nelem=0;adtIntegers=NULL;adtReals=NULL;adtExtents=NULL;coord=NULL;};
   ~ADT() 

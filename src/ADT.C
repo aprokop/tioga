@@ -33,6 +33,14 @@ extern void median_(int *,double *,int *,double *);
 
 void ADT::buildADT(int d, int nelements,double *elementBbox)
 {
+#ifdef USE_ArborX
+  //
+  // Make call to ArborX tree builder
+  //
+  // May want to add tolerance to elementBbox data here
+  // can use same TOL (its in codetypes.h)
+
+#else
   int i,i2,j6,j,i4;
   int *elementsAvailable;
   double *adtWork;
@@ -132,4 +140,5 @@ void ADT::buildADT(int d, int nelements,double *elementBbox)
   //fclose(fp1);
   TIOGA_FREE(elementsAvailable);
   TIOGA_FREE(adtWork);
+#endif
 }
