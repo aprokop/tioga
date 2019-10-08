@@ -24,8 +24,12 @@
 #include <cstdlib>
 #include <memory>
 
+#ifdef TIOGA_USE_ARBORX
+#include <ArborX.hpp>
+#endif
+
 // forward declaration for instantiation
-class MeshBlock; 
+class MeshBlock;
 
 /**
  * Generic Alternating Digital Tree For Search Operations
@@ -33,7 +37,7 @@ class MeshBlock;
 class ADT
 {
   private :
-  
+
   int ndim;          /** < number of dimensions (usually 3 but can be more) */
   int nelem;         /** < number of elements */
   int *adtIntegers;  /** < integers that define the architecture of the tree */
@@ -41,17 +45,16 @@ class ADT
   double *adtExtents; /** < global extents */
   double *coord;          /** < bounding box of each element */
 
-#ifdef USE_ArborX
+#ifdef TIOGA_USE_ARBORX
 
-   // data to be instantiated/populated by
-   // ArborX tree builder
-
+  using DeviceType = Kokkos::Serial::device_type;
+  ArborX::BVH<DeviceType> bvh;
 
 #endif
 
  public :
   ADT() {ndim=6;nelem=0;adtIntegers=NULL;adtReals=NULL;adtExtents=NULL;coord=NULL;};
-  ~ADT() 
+  ~ADT()
     {
       if (adtIntegers) free(adtIntegers);
       if (adtReals) free(adtReals);
@@ -68,8 +71,8 @@ class ADT
       adtIntegers=NULL;
       adtReals=NULL;
       adtExtents=NULL;
-    };      
-  void buildADT(int d,int nelements,double *elementBbox);  
+    };
+  void buildADT(int d,int nelements,double *elementBbox);
   void searchADT(MeshBlock *mb,int *cellindx,double *xsearch);
 };
 

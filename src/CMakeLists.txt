@@ -51,6 +51,10 @@ if(MPI_LINK_FLAGS)
     LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
+if (TIOGA_ENABLE_ARBORX)
+  target_link_libraries(tioga ArborX::ArborX)
+endif()
+
 install(TARGETS tioga
   EXPORT "${CMAKE_PROJECT_NAME}Libraries"
   RUNTIME DESTINATION bin

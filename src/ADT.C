@@ -18,7 +18,7 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 /**
- * Build an alternating digital tree 
+ * Build an alternating digital tree
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +33,9 @@ extern void median_(int *,double *,int *,double *);
 
 void ADT::buildADT(int d, int nelements,double *elementBbox)
 {
-#ifdef USE_ArborX
+#ifdef TIOGA_USE_ARBORX
+  Kokkos::View<ArborX::Box *, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged>> boxes(reinterpret_cast<ArborX::Box*>(elementBbox), nelements);
+  bvh = ArborX::BVH<DeviceType>(boxes);
   //
   // Make call to ArborX tree builder
   //
@@ -45,7 +47,7 @@ void ADT::buildADT(int d, int nelements,double *elementBbox)
   int *elementsAvailable;
   double *adtWork;
   int adtCount,parent,level,nav;
-  int side;    
+  int side;
   double tolerance,delta;
   FILE *fp,*fp1;
   //
@@ -54,7 +56,7 @@ void ADT::buildADT(int d, int nelements,double *elementBbox)
   ndim=d;
   nelem=nelements;
   /* set element bbox pointer */
-  coord=elementBbox;  
+  coord=elementBbox;
   /*
    * Allocate work arrays
    */
@@ -80,7 +82,7 @@ void ADT::buildADT(int d, int nelements,double *elementBbox)
    }
   for(j=0;j<nelem;j++)
    {
-     j6=6*j;	 
+     j6=6*j;
      for(i=0;i<ndim/2;i++)
        {
 	 i2=2*i;

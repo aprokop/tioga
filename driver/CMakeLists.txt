@@ -3,6 +3,8 @@ set(TIOGA_EXE_SOURCES
   modules.f90
   gridutils.f90
   poisson_utils.f90
+  kokkos.f90
+  kokkos.C
   )
 
 add_library(tiogadriver ${TIOGA_EXE_SOURCES})
