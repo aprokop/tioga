@@ -3,12 +3,16 @@ set(TIOGA_EXE_SOURCES
   modules.f90
   gridutils.f90
   poisson_utils.f90
-  kokkos.f90
-  kokkos.C
+)
+if (TIOGA_ENABLE_ARBORX)
+  list(APPEND TIOGA_EXE_SOURCES
+      kokkos.f90
+      kokkos.C
   )
+endif()
 
 add_library(tiogadriver ${TIOGA_EXE_SOURCES})
-target_compile_definitions(tiogadriver PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
+# target_compile_definitions(tiogadriver PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
 target_include_directories(tiogadriver PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 target_link_libraries(tiogadriver
   tioga ${MPI_Fortran_LIBRARIES} ${CMAKE_DL_LIBS})

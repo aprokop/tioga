@@ -45,15 +45,20 @@ void ADT::searchADT(MeshBlock *mb, int *cellIndex,double *xsearch)
   Kokkos::View<int *, DeviceType> indices("indices", 0);
   bvh.query(queries, indices, offset, 0/*buffer_size*/);
 
-  int ncandidates = offset.size() - 1;     // number of approximate neighbors
+  int ncandidates = offset[1];     // number of approximate neighbors
   int *candidateList = indices.data();    // index of candidate AABB
 
+  cellIndex[0] = -1;
+  cellIndex[1] = 0;
   for(int j = 0; j < ncandidates; j++)
     {
       mb->checkContainment(cellIndex, candidateList[j], xsearch);
       // checkContainment will map the element in adt list to the actual cell
-      if (cellIndex[0] > -1 && cellIndex[1]==0) return;
+      if (cellIndex[0] > -1 && cellIndex[1]==0) {
+          break;
+      }
     }
+  // std::cout << "ArborX -> (" << cellIndex[0] << "," << cellIndex[1] << ")\t\t  | \t";
 #else
   int i;
   int flag;
@@ -77,6 +82,7 @@ void ADT::searchADT(MeshBlock *mb, int *cellIndex,double *xsearch)
   //
   if (flag) searchIntersections(mb,cellIndex,adtIntegers,adtReals,
 				coord,0,rootNode,xsearch,nelem,ndim);
+  // std::cout << "ADT -> (" << cellIndex[0] << "," << cellIndex[1] << ")\n";
 #endif
 }
 
@@ -124,7 +130,9 @@ void searchIntersections(MeshBlock *mb,int *cellIndex,int *adtIntegers,double *a
 	  {
 	    searchIntersections(mb,cellIndex,adtIntegers,adtReals,coord,level+1,
 			       nodeChild,xsearch,nelem,ndim);
-	    if (cellIndex[0] > -1 && cellIndex[1]==0) return;
+	    if (cellIndex[0] > -1 && cellIndex[1]==0) {
+            return;
+        }
 	  }
       }
     }

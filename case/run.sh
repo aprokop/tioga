@@ -14,4 +14,4 @@ cd grid;
 echo $num_mesh_parts
 mpirun -np $num_mesh_parts ../../build3/gridGen/buildGrid
 cd ..
-mpirun -np $num_mpi_ranks ../build3/driver/tioga.exe
+mpirun --bind-to core --map-by socket -np $num_mpi_ranks ../build/driver/tioga.exe

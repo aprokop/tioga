@@ -43,6 +43,7 @@ void ADT::buildADT(int d, int nelements,double *elementBbox)
   // can use same TOL (its in codetypes.h)
 
 #else
+
   int i,i2,j6,j,i4;
   int *elementsAvailable;
   double *adtWork;
