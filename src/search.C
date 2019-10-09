@@ -230,7 +230,12 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
    }
   ndim=6;
   //
+  MPI_Barrier(MPI_COMM_WORLD);
+  double t_start = MPI_Wtime(), t_end;
   adt->buildADT(ndim,cell_count,elementBbox);
+  MPI_Barrier(MPI_COMM_WORLD);
+  t_end=MPI_Wtime();
+  if (myid==0) printf(">>> Tree construction: %lf\n",t_end-t_start);
   //
   if (donorId) TIOGA_FREE(donorId);
   donorId=(int*)malloc(sizeof(int)*nsearch);
@@ -248,6 +253,9 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   donorCount=0;
   ipoint=0; 
   dId=(int *) malloc(sizeof(int) *2);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  t_start = MPI_Wtime();
   for(i=0;i<nsearch;i++)
     {
      if (xtag[i]==i) {
@@ -263,6 +271,9 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 	}
        ipoint+=3;
      }
+  MPI_Barrier(MPI_COMM_WORLD);
+  t_end = MPI_Wtime();
+  if (myid==0) printf(">>> Tree search: %lf\n",t_end-t_start);
   TIOGA_FREE(dId);
   TIOGA_FREE(icell);
   TIOGA_FREE(obq);
