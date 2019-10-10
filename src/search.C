@@ -22,6 +22,10 @@
 #include <unordered_map>
 #include <iostream>
 
+#ifdef TIOGA_USE_ARBORX
+#include <ArborX.hpp>
+#endif
+
 extern "C" {
   void findOBB(double *x,double xc[3],double dxc[3],double vec[3][3],int nnodes);
   void writebbox(OBB *obb,int bid);
@@ -232,7 +236,16 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   //
   MPI_Barrier(MPI_COMM_WORLD);
   double t_start = MPI_Wtime(), t_end;
+#ifdef TIOGA_USE_ARBORX
+  using DeviceType = Kokkos::Serial::device_type;
+  // May want to add tolerance to elementBbox data here
+  // can use same TOL (its in codetypes.h)
+  Kokkos::View<ArborX::Box *, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+          boxes(reinterpret_cast<ArborX::Box*>(elementBbox), cell_count);
+  ArborX::BVH<DeviceType> bvh = ArborX::BVH<DeviceType>(boxes);
+#else
   adt->buildADT(ndim,cell_count,elementBbox);
+#endif
   MPI_Barrier(MPI_COMM_WORLD);
   t_end=MPI_Wtime();
   if (myid==0) printf(">>> Tree construction: %lf\n",t_end-t_start);
@@ -256,11 +269,56 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 
   MPI_Barrier(MPI_COMM_WORLD);
   t_start = MPI_Wtime();
+#ifdef TIOGA_USE_ARBORX
+  using QueryType = ArborX::Intersects<ArborX::Point>;
+
+  // Setup queries
+  const int n_queries = nsearch;
+  Kokkos::View<QueryType *, DeviceType> queries(
+      Kokkos::ViewAllocateWithoutInitializing("queries"), n_queries);
+
+  using ExecutionSpace = typename DeviceType::execution_space;
+  Kokkos::parallel_for("bvh_driver:setup_radius_search_queries",
+                       Kokkos::RangePolicy<ExecutionSpace>(0, n_queries),
+                       KOKKOS_LAMBDA(int i) {
+                         queries(i) = QueryType(ArborX::Point{xsearch[3*i],xsearch[3*i+1],xsearch[3*i+2]});
+                       });
+
+  Kokkos::View<int *, DeviceType> offset("offset", 0);
+  Kokkos::View<int *, DeviceType> indices("indices", 0);
+  bvh.query(queries, indices, offset, 5/*buffer_size*/);
+
+  for(i = 0; i < nsearch; i++) {
+     if (xtag[i]==i) {
+        dId[0] = -1;
+        dId[1] = 0;
+        int ncandidates = offset[i+1] - offset[i];
+        auto candidateList = indices.data() + offset[i];
+        for(int j = 0; j < ncandidates; j++) {
+          this->checkContainment(dId, candidateList[j], xsearch + 3*i);
+            if (dId[0] > -1 && dId[1]==0) {
+                  break;
+              }
+            }
+
+        // std::cout << "ArborX -> (" << dId[0] << "," << dId[1] << ")\n";
+        donorId[i] = dId[0];
+      }
+    else {
+      donorId[i]=donorId[xtag[i]];
+    }
+
+    if (donorId[i] > -1) {
+       donorCount++;
+    }
+  }
+#else
   for(i=0;i<nsearch;i++)
     {
      if (xtag[i]==i) {
 	//adt->searchADT(this,&(donorId[i]),&(xsearch[3*i]));
 	adt->searchADT(this,dId,&(xsearch[3*i]));
+  // std::cout << "ADT -> (" << dId[0] << "," << dId[1] << ")\n";
         donorId[i]=dId[0];
       }
       else {
@@ -271,6 +329,7 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 	}
        ipoint+=3;
      }
+#endif
   MPI_Barrier(MPI_COMM_WORLD);
   t_end = MPI_Wtime();
   if (myid==0) printf(">>> Tree search: %lf\n",t_end-t_start);

@@ -24,10 +24,6 @@
 #include <cstdlib>
 #include <memory>
 
-#ifdef TIOGA_USE_ARBORX
-#include <ArborX.hpp>
-#endif
-
 // forward declaration for instantiation
 class MeshBlock;
 
@@ -44,13 +40,6 @@ class ADT
   double *adtReals;  /** < real numbers that provide the extents of each box */
   double *adtExtents; /** < global extents */
   double *coord;          /** < bounding box of each element */
-
-#ifdef TIOGA_USE_ARBORX
-
-  using DeviceType = Kokkos::Serial::device_type;
-  ArborX::BVH<DeviceType> bvh;
-
-#endif
 
  public :
   ADT() {ndim=6;nelem=0;adtIntegers=NULL;adtReals=NULL;adtExtents=NULL;coord=NULL;};
