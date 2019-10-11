@@ -24,6 +24,31 @@
 
 #ifdef TIOGA_USE_ARBORX
 #include <ArborX.hpp>
+struct ArborXBoxesWrapper
+{
+  double *data;
+  int n;
+};
+
+
+namespace ArborX
+{
+namespace Traits
+{
+template <>
+struct Access<ArborXBoxesWrapper, PrimitivesTag>
+{
+    KOKKOS_INLINE_FUNCTION
+    static Box get(ArborXBoxesWrapper const& d, int i)
+    {
+        return {{d.data[6*i+0]-TOL, d.data[6*i+1]-TOL, d.data[6*i+2]-TOL},
+                {d.data[6*i+3]+TOL, d.data[6*i+4]+TOL, d.data[6*i+5]+TOL}};
+    }
+    inline static typename std::size_t size(ArborXBoxesWrapper const &d) { return d.n; }
+    using memory_space = Kokkos::HostSpace;
+};
+}
+}
 #endif
 
 extern "C" {
@@ -238,11 +263,7 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   double t_start = MPI_Wtime(), t_end;
 #ifdef TIOGA_USE_ARBORX
   using DeviceType = Kokkos::Serial::device_type;
-  // May want to add tolerance to elementBbox data here
-  // can use same TOL (its in codetypes.h)
-  Kokkos::View<ArborX::Box *, DeviceType, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-          boxes(reinterpret_cast<ArborX::Box*>(elementBbox), cell_count);
-  ArborX::BVH<DeviceType> bvh = ArborX::BVH<DeviceType>(boxes);
+  ArborX::BVH<DeviceType> bvh{ArborXBoxesWrapper{elementBbox, cell_count}};
 #else
   adt->buildADT(ndim,cell_count,elementBbox);
 #endif
