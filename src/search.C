@@ -24,6 +24,8 @@
 
 #ifdef TIOGA_USE_ARBORX
 #include <ArborX.hpp>
+// using DeviceType = Kokkos::Serial::device_type;
+using DeviceType = Kokkos::Device<Kokkos::Cuda, Kokkos::CudaUVMSpace>;
 struct ArborXBoxesWrapper
 {
   double *data;
@@ -45,7 +47,7 @@ struct Access<ArborXBoxesWrapper, PrimitivesTag>
                 {d.data[6*i+3]+TOL, d.data[6*i+4]+TOL, d.data[6*i+5]+TOL}};
     }
     inline static typename std::size_t size(ArborXBoxesWrapper const &d) { return d.n; }
-    using memory_space = Kokkos::HostSpace;
+    using memory_space = typename DeviceType::memory_space;
 };
 }
 }
@@ -259,11 +261,18 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
    }
   ndim=6;
   //
+#ifdef TIOGA_USE_ARBORX
+  // Do not include memory copying into timings
+  double* device_ptr = elementBbox;
+  cudaMallocManaged(&device_ptr, 6*sizeof(double)*cell_count);
+  for (int i = 0; i < 6*cell_count; ++i)
+      device_ptr[i] = elementBbox[i];
+#endif
   MPI_Barrier(MPI_COMM_WORLD);
   double t_start = MPI_Wtime(), t_end;
 #ifdef TIOGA_USE_ARBORX
-  using DeviceType = Kokkos::Serial::device_type;
-  ArborX::BVH<DeviceType> bvh{ArborXBoxesWrapper{elementBbox, cell_count}};
+  ArborX::BVH<DeviceType> bvh{ArborXBoxesWrapper{device_ptr, cell_count}};
+  cudaFree(device_ptr);
 #else
   adt->buildADT(ndim,cell_count,elementBbox);
 #endif
@@ -288,6 +297,13 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   ipoint=0; 
   dId=(int *) malloc(sizeof(int) *2);
 
+#ifdef TIOGA_USE_ARBORX
+  // Do not include memory copying into timings
+  device_ptr = xsearch;
+  cudaMallocManaged(&device_ptr, 3*sizeof(double)*nsearch);
+  for (int i = 0; i < 3*nsearch; ++i)
+      device_ptr[i] = xsearch[i];
+#endif
   MPI_Barrier(MPI_COMM_WORLD);
   t_start = MPI_Wtime();
 #ifdef TIOGA_USE_ARBORX
@@ -302,7 +318,7 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   Kokkos::parallel_for("bvh_driver:setup_radius_search_queries",
                        Kokkos::RangePolicy<ExecutionSpace>(0, n_queries),
                        KOKKOS_LAMBDA(int i) {
-                         queries(i) = QueryType(ArborX::Point{xsearch[3*i],xsearch[3*i+1],xsearch[3*i+2]});
+                         queries(i) = QueryType(ArborX::Point{device_ptr[3*i],device_ptr[3*i+1],device_ptr[3*i+2]});
                        });
 
   Kokkos::View<int *, DeviceType> offset("offset", 0);
@@ -333,6 +349,7 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
        donorCount++;
     }
   }
+  cudaFree(device_ptr);
 #else
   for(i=0;i<nsearch;i++)
     {
