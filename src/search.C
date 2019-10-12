@@ -24,8 +24,8 @@
 
 #ifdef TIOGA_USE_ARBORX
 #include <ArborX.hpp>
-// using DeviceType = Kokkos::Serial::device_type;
-using DeviceType = Kokkos::Device<Kokkos::Cuda, Kokkos::CudaUVMSpace>;
+using DeviceType = Kokkos::Serial::device_type;
+// using DeviceType = Kokkos::Device<Kokkos::Cuda, Kokkos::CudaUVMSpace>;
 struct ArborXBoxesWrapper
 {
   double *data;
@@ -264,15 +264,27 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 #ifdef TIOGA_USE_ARBORX
   // Do not include memory copying into timings
   double* device_ptr = elementBbox;
-  cudaMallocManaged(&device_ptr, 6*sizeof(double)*cell_count);
-  for (int i = 0; i < 6*cell_count; ++i)
+  bool new_device_ptr = false;
+#ifdef KOKKOS_ENABLE_CUDA
+  if (std::is_same<DeviceType,
+                 Kokkos::Device<Kokkos::Cuda, Kokkos::CudaUVMSpace>>::value ||
+    std::is_same<DeviceType,
+                 Kokkos::Device<Kokkos::Cuda, Kokkos::CudaSpace>>::value) {
+    cudaMallocManaged(&device_ptr, 6*sizeof(double)*cell_count);
+    for (int i = 0; i < 6*cell_count; ++i)
       device_ptr[i] = elementBbox[i];
+    new_device_ptr = true;
+  }
+#endif
 #endif
   MPI_Barrier(MPI_COMM_WORLD);
   double t_start = MPI_Wtime(), t_end;
 #ifdef TIOGA_USE_ARBORX
   ArborX::BVH<DeviceType> bvh{ArborXBoxesWrapper{device_ptr, cell_count}};
-  cudaFree(device_ptr);
+#ifdef KOKKOS_ENABLE_CUDA
+  if (new_device_ptr)
+      cudaFree(device_ptr);
+#endif
 #else
   adt->buildADT(ndim,cell_count,elementBbox);
 #endif
@@ -300,9 +312,18 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 #ifdef TIOGA_USE_ARBORX
   // Do not include memory copying into timings
   device_ptr = xsearch;
-  cudaMallocManaged(&device_ptr, 3*sizeof(double)*nsearch);
-  for (int i = 0; i < 3*nsearch; ++i)
+  new_device_ptr = false;
+#ifdef KOKKOS_ENABLE_CUDA
+  if (std::is_same<DeviceType,
+                 Kokkos::Device<Kokkos::Cuda, Kokkos::CudaUVMSpace>>::value ||
+    std::is_same<DeviceType,
+                 Kokkos::Device<Kokkos::Cuda, Kokkos::CudaSpace>>::value) {
+    cudaMallocManaged(&device_ptr, 3*sizeof(double)*nsearch);
+    for (int i = 0; i < 3*nsearch; ++i)
       device_ptr[i] = xsearch[i];
+    new_device_ptr = true;
+  }
+#endif
 #endif
   MPI_Barrier(MPI_COMM_WORLD);
   t_start = MPI_Wtime();
@@ -349,7 +370,10 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
        donorCount++;
     }
   }
-  cudaFree(device_ptr);
+#ifdef KOKKOS_ENABLE_CUDA
+  if (new_device_ptr)
+      cudaFree(device_ptr);
+#endif
 #else
   for(i=0;i<nsearch;i++)
     {
