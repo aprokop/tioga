@@ -17,6 +17,7 @@ if (TIOGA_ENABLE_ARBORX)
 endif()
 # target_compile_definitions(tiogadriver PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
 target_include_directories(tiogadriver PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+target_compile_options(tiogadriver PUBLIC "-cpp")
 target_link_libraries(tiogadriver PUBLIC
   tioga ${MPI_Fortran_LIBRARIES} ${CMAKE_DL_LIBS})
 
