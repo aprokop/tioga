@@ -45,6 +45,10 @@ if (NOT TIOGA_FIND_COMPONENTS)
     set(TIOGA_FIND_COMPONENTS "tioga")
 endif ()
 
+if (TIOGA_ENABLE_ARBORX)
+  find_dependency(ArborX)
+endif()
+
 set(TIOGA_FOUND TRUE)
 set(TIOGA_tioga_FOUND TRUE)
 

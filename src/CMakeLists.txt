@@ -39,7 +39,7 @@ set(TIOGA_SOURCES
 file(GLOB TIOGA_HEADERS *.h)
 
 add_library(tioga ${TIOGA_SOURCES})
-target_link_libraries(tioga ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
+target_link_libraries(tioga PUBLIC ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
 
 if(MPI_COMPILE_FLAGS)
   set_target_properties(tioga PROPERTIES
@@ -52,7 +52,7 @@ if(MPI_LINK_FLAGS)
 endif()
 
 if (TIOGA_ENABLE_ARBORX)
-  target_link_libraries(tioga ArborX::ArborX)
+  target_link_libraries(tioga PRIVATE ArborX::ArborX)
 endif()
 
 install(TARGETS tioga

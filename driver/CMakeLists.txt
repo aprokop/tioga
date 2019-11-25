@@ -12,9 +12,12 @@ if (TIOGA_ENABLE_ARBORX)
 endif()
 
 add_library(tiogadriver ${TIOGA_EXE_SOURCES})
+if (TIOGA_ENABLE_ARBORX)
+  target_link_libraries(tiogadriver PRIVATE ArborX::ArborX)
+endif()
 # target_compile_definitions(tiogadriver PUBLIC ${MPI_Fortran_COMPILE_FLAGS})
 target_include_directories(tiogadriver PUBLIC ${MPI_Fortran_INCLUDE_PATH})
-target_link_libraries(tiogadriver
+target_link_libraries(tiogadriver PUBLIC
   tioga ${MPI_Fortran_LIBRARIES} ${CMAKE_DL_LIBS})
 
 add_executable(tioga.exe testTioga.f90)
