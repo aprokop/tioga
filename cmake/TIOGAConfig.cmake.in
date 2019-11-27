@@ -47,7 +47,7 @@ endif ()
 
 set(TIOGA_ENABLE_ARBORX "@TIOGA_ENABLE_ARBORX@")
 if (TIOGA_ENABLE_ARBORX)
-  find_dependency(ArborX)
+  find_package(ArborX REQUIRED)
 endif()
 
 set(TIOGA_FOUND TRUE)
