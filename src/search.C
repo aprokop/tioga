@@ -277,7 +277,6 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   }
 #endif
 #endif
-  MPI_Barrier(MPI_COMM_WORLD);
   double t_start = MPI_Wtime(), t_end;
 #ifdef TIOGA_USE_ARBORX
   ArborX::BVH<DeviceType> bvh{ArborXBoxesWrapper{device_ptr, cell_count}};
@@ -288,7 +287,6 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 #else
   adt->buildADT(ndim,cell_count,elementBbox);
 #endif
-  MPI_Barrier(MPI_COMM_WORLD);
   t_end=MPI_Wtime();
   if (myid==0) printf(">>> Tree construction: %lf\n",t_end-t_start);
   //
@@ -325,7 +323,6 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   }
 #endif
 #endif
-  MPI_Barrier(MPI_COMM_WORLD);
   t_start = MPI_Wtime();
 #ifdef TIOGA_USE_ARBORX
   using QueryType = ArborX::Intersects<ArborX::Point>;
@@ -392,7 +389,6 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
        ipoint+=3;
      }
 #endif
-  MPI_Barrier(MPI_COMM_WORLD);
   t_end = MPI_Wtime();
   if (myid==0) printf(">>> Tree search: %lf\n",t_end-t_start);
   TIOGA_FREE(dId);
