@@ -51,6 +51,42 @@ struct Access<ArborXBoxesWrapper, PrimitivesTag>
 };
 }
 }
+
+struct MyCallback
+{
+  MeshBlock* mb;
+  double* xsearch;
+  int *xtag;
+  int *donorId;
+  int *donorId_helper;
+
+  using tag = ArborX::Details::InlineCallbackTag;
+  template <typename Query, typename Insert>
+  KOKKOS_FUNCTION void operator()(Query const &query, int index,
+                                  Insert const &insert) const
+  {
+    auto const& data = ArborX::getData(query);
+
+    int i     = data[0];
+    int* dId0 = donorId;
+    int* dId1 = donorId_helper;
+
+    if (i != xtag[i]) {
+        donorId[i] = donorId[xtag[i]];
+        return;
+    }
+
+    if (donorId[i] > -1 && donorId_helper[1] == 0)
+        return;
+    int dId[2];
+    mb->checkContainment(dId, index, xsearch + 3*i);
+    if (dId[0] > -1 && dId[1] == 0) {
+        donorId[i] = dId[0];
+        donorId_helper[i] = dId[1];
+    }
+  }
+};
+
 #endif
 
 extern "C" {
@@ -114,7 +150,7 @@ void MeshBlock::search(void)
   OBB *obq;
   int *icell;
   int *itag;
-  int cell_count; 
+  int cell_count;
   int cellindex;
   double xd[3];
   double dxc[3];
@@ -122,21 +158,21 @@ void MeshBlock::search(void)
   double xmax[3];
   int *dId;
   //
-  // form the bounding box of the 
+  // form the bounding box of the
   // query points
   //
   if (nsearch == 0) {
     donorCount=0;
     return;
   }
- 
+
   if (uniform_hex) {
     search_uniform_hex();
     return;
   }
 
   obq=(OBB *) malloc(sizeof(OBB));
-  
+
 findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 
 
@@ -164,7 +200,7 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 	  xmax[0]=xmax[1]=xmax[2]=-BIGVALUE;
 	  for(m=0;m<nvert;m++)
 	    {
-	      i3=3*(vconn[n][nvert*i+m]-BASE);	      
+	      i3=3*(vconn[n][nvert*i+m]-BASE);
 	      for(j=0;j<3;j++)
 		{
 		  xd[j]=0;
@@ -181,11 +217,11 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 	    }
 	  if (fabs(xd[0]) <= (dxc[0]+obq->dxc[0]) &&
 	      fabs(xd[1]) <= (dxc[1]+obq->dxc[1]) &&
-	      fabs(xd[2]) <= (dxc[2]+obq->dxc[2])) 
+	      fabs(xd[2]) <= (dxc[2]+obq->dxc[2]))
 	    {
 	      //
 	      // create a LIFO stack
-	      // with all the cells that 
+	      // with all the cells that
 	      // have bounding box intersection with
 	      // the QP bounding box
 	      //
@@ -215,7 +251,7 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
     {
       cellindex=k;
       isum=0;
-      for(n=0;n<ntypes;n++) 
+      for(n=0;n<ntypes;n++)
 	{
 	  isum+=nc[n];
 	  if (cellindex < isum)
@@ -251,7 +287,7 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   //
   // build the ADT now
   //
-  if (adt) 
+  if (adt)
    {
     adt->clearData();
    }
@@ -304,10 +340,16 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
 #endif
   //
   donorCount=0;
-  ipoint=0; 
+  ipoint=0;
   dId=(int *) malloc(sizeof(int) *2);
 
 #ifdef TIOGA_USE_ARBORX
+  int *donorId_helper = (int*)malloc(sizeof(int)*nsearch);
+  for (int i = 0; i < nsearch; i++) {
+      donorId[i] = -1;
+      donorId_helper[i] = 0;
+  }
+
   // Do not include memory copying into timings
   device_ptr = xsearch;
   new_device_ptr = false;
@@ -326,42 +368,28 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   t_start = MPI_Wtime();
 #ifdef TIOGA_USE_ARBORX
   using QueryType = ArborX::Intersects<ArborX::Point>;
+  using PredicateType = ArborX::PredicateWithAttachment<QueryType, Kokkos::Array<int,1>>;
 
   // Setup queries
   const int n_queries = nsearch;
-  Kokkos::View<QueryType *, DeviceType> queries(
+  Kokkos::View<PredicateType *, DeviceType> queries(
       Kokkos::ViewAllocateWithoutInitializing("queries"), n_queries);
 
   using ExecutionSpace = typename DeviceType::execution_space;
   Kokkos::parallel_for("bvh_driver:setup_radius_search_queries",
                        Kokkos::RangePolicy<ExecutionSpace>(0, n_queries),
                        KOKKOS_LAMBDA(int i) {
-                         queries(i) = QueryType(ArborX::Point{device_ptr[3*i],device_ptr[3*i+1],device_ptr[3*i+2]});
+                         queries(i) = ArborX::attach(QueryType(ArborX::Point{device_ptr[3*i],device_ptr[3*i+1],device_ptr[3*i+2]}), Kokkos::Array<int,1>{i});
                        });
 
   Kokkos::View<int *, DeviceType> offset("offset", 0);
   Kokkos::View<int *, DeviceType> indices("indices", 0);
-  bvh.query(queries, indices, offset, 5/*buffer_size*/);
+  bvh.query(queries, MyCallback{this, xsearch, xtag, donorId, donorId_helper}, indices, offset);
 
   for(i = 0; i < nsearch; i++) {
-     if (xtag[i]==i) {
-        dId[0] = -1;
-        dId[1] = 0;
-        int ncandidates = offset[i+1] - offset[i];
-        auto candidateList = indices.data() + offset[i];
-        for(int j = 0; j < ncandidates; j++) {
-          this->checkContainment(dId, candidateList[j], xsearch + 3*i);
-            if (dId[0] > -1 && dId[1]==0) {
-                  break;
-              }
-            }
-
-        // std::cout << "ArborX -> (" << dId[0] << "," << dId[1] << ")\n";
-        donorId[i] = dId[0];
-      }
-    else {
-      donorId[i]=donorId[xtag[i]];
-    }
+     // if (xtag[i]==i) {
+        // std::cout << "#" << myid << ": ArborX -> (" << donorId[i] << "," << donorId_helper[i] << ")\n";
+    // }
 
     if (donorId[i] > -1) {
        donorCount++;
@@ -394,6 +422,9 @@ findOBB(xsearch,obq->xc,obq->dxc,obq->vec,nsearch);
   TIOGA_FREE(dId);
   TIOGA_FREE(icell);
   TIOGA_FREE(obq);
+#ifdef TIOGA_USE_ARBORX
+  TIOGA_FREE(donorId_helper);
+#endif
 }
 
 void MeshBlock::search_uniform_hex(void)
@@ -415,7 +446,7 @@ void MeshBlock::search_uniform_hex(void)
   //
   // corners of a cube with of side 4*TOL
   // with origin as the center
-  // 
+  //
   for(int jj=0;jj<8;jj++)
     for(int k=0;k<3;k++) xvec[jj][k]=(2*((jj & (1 << k)) >> k)-1)*2*TOL;
   //
@@ -434,11 +465,11 @@ void MeshBlock::search_uniform_hex(void)
 	  }
         if (xd[0] > -TOL && xd[0] < idims[0]*dx[0]+TOL &&
             xd[1] > -TOL && xd[1] < idims[1]*dx[1]+TOL &&
-            xd[2] > -TOL && xd[2] < idims[2]*dx[2]+TOL) 
+            xd[2] > -TOL && xd[2] < idims[2]*dx[2]+TOL)
 	   {
             for(int k=0;k<3;k++) if (idx[k]==idims[k]) idx[k]--;
             dID[0]=uindx[idx[2]*idims[1]*idims[0]+idx[1]*idims[0]+idx[0]];
-            dID[1]=(dID[0] > -1) ? (cellRes[dID[0]]==BIGVALUE) : 1; 
+            dID[1]=(dID[0] > -1) ? (cellRes[dID[0]]==BIGVALUE) : 1;
             for(int jj=0;jj<8 && (dId[0]==-1 || dID[1]) ;jj++)
              {
               for(int k=0;k<3;k++)
@@ -447,10 +478,10 @@ void MeshBlock::search_uniform_hex(void)
                 if (idx[k]==idims[k]) idx[k]--;
                }
 	        int dtest=uindx[idx[2]*idims[1]*idims[0]+idx[1]*idims[0]+idx[0]];
-                dID[1]=(dtest > -1) ? (cellRes[dtest]==BIGVALUE) : 1; 
+                dID[1]=(dtest > -1) ? (cellRes[dtest]==BIGVALUE) : 1;
                 dID[0]=(dID[0] == -1) ? dtest : (!dID[1] ? dtest : dID[0]);
               }
-             donorId[i]=dID[0]; 
+             donorId[i]=dID[0];
             }
        else
           {
