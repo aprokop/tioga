@@ -23,15 +23,12 @@ target_link_libraries(tiogadriver PUBLIC
 
 add_executable(tioga.exe testTioga.f90)
 target_link_libraries(tioga.exe tiogadriver)
-set_target_properties(tioga.exe PROPERTIES LINKER_LANGUAGE Fortran)
 
 add_executable(tioga_read.exe testTioga_dataRead.f90)
 target_link_libraries(tioga_read.exe tiogadriver)
-set_target_properties(tioga_read.exe PROPERTIES LINKER_LANGUAGE Fortran)
 
 add_executable(poisson_mms.exe poisson_mms.f90)
 target_link_libraries(poisson_mms.exe tiogadriver)
-set_target_properties(poisson_mms.exe PROPERTIES LINKER_LANGUAGE Fortran)
 
 install(TARGETS tiogadriver
   RUNTIME DESTINATION bin
