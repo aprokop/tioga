@@ -12,7 +12,7 @@ add_executable(buildGrid ${GRIDGEN_SOURCES})
 target_include_directories(buildGrid PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 target_link_libraries(buildGrid
   tioga ${MPI_Fortran_LIBRARIES} ${CMAKE_DL_LIBS})
-set_target_properties(buildGrid PROPERTIES LINKER_LANGUAGE Fortran)
+# set_target_properties(buildGrid PROPERTIES LINKER_LANGUAGE Fortran)
 
 install(TARGETS buildGrid
   RUNTIME DESTINATION bin
